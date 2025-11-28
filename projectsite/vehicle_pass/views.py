@@ -24,6 +24,7 @@ from django.views.decorators.http import require_http_methods
 from datetime import timedelta 
 import pytz
 import csv
+import re
 
 from django.db.models import Count, Q
 from django.utils.timezone import now
@@ -105,6 +106,20 @@ def redirect_user_dashboard(user):
         return redirect("admin_dashboard")
     
     return redirect("default_dashboard")
+
+@login_required
+def dashboard_redirect(request):
+    """Redirects user to appropriate dashboard based on their role."""
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return redirect("login")
+    
+    try:
+        user = UserProfile.objects.get(id=user_id)
+        return redirect_user_dashboard(user)
+    except UserProfile.DoesNotExist:
+        request.session.flush()
+        return redirect("login")
 
 @csrf_protect
 @require_http_methods(["GET", "POST"])
@@ -693,7 +708,8 @@ def admin_dashboard(request):
     user_id = request.session.get('user_id')
     if not user_id:
         return redirect('login')
-    admin_profile = get_object_or_404(AdminProfile, user__id=user_id)
+    # Use .first() to handle potential duplicate AdminProfile records gracefully
+    admin_profile = AdminProfile.objects.filter(user__id=user_id).first()
     user_profile = UserProfile.objects.filter(id=user_id).first()
     if user_profile:
         context['profile'] = user_profile
@@ -854,7 +870,7 @@ def admin_report(request):
         'registrations_by_system_role': reports['registrations_by_system_role'],
     }
 
-    return context
+    return render(request, "Admin/Admin_Reports.html", context)
 
 @login_required
 def download_reports_csv(request):
@@ -862,7 +878,7 @@ def download_reports_csv(request):
     Generates a CSV file for filtered registration records with columns specific
     to the chosen report type. Payment reports have a concise structure.
     """
-    # Authorization Check (Keep the corrected version from previous step)
+    # Authorization Check
     user_id = request.session.get("user_id")
     if not user_id:
         return HttpResponseRedirect(reverse('login'))
@@ -1253,78 +1269,176 @@ def settings_view(request):
     user_id = request.session.get('user_id')
     if not user_id:
         messages.error(request, "You must be logged in to access settings.")
-        return redirect('login')  # Replace with your login route name
+        return redirect('login')
 
     user = get_object_or_404(UserProfile, id=user_id)
 
+    # Determine effective role based on related profiles (AdminProfile/SecurityProfile)
+    if AdminProfile.objects.filter(user=user).exists():
+        effective_role = 'admin'
+    elif SecurityProfile.objects.filter(user=user).exists():
+        effective_role = 'security'
+    else:
+        effective_role = user.role or 'user'
+
+    # Role-specific template
+    if effective_role == 'admin':
+        template_name = 'Settings/admin_settings.html'
+        all_vehicles = Vehicle.objects.select_related('applicant').all()
+    elif effective_role == 'security':
+        template_name = 'Settings/security_settings.html'
+        all_vehicles = Vehicle.objects.select_related('applicant').all()
+    else:
+        template_name = 'Settings/user_settings.html'
+        all_vehicles = Vehicle.objects.filter(applicant=user)
+
     if request.method == 'POST':
+        # === Handle password update FIRST (separate logic) ===
+        current_password = request.POST.get('current_password', '').strip()
+        new_password = request.POST.get('new_password', '').strip()
+        confirm_password = request.POST.get('confirm_password', '').strip()
+        
+        # Check if ANY password field is filled
+        password_attempt = current_password or new_password or confirm_password
+        
+        if password_attempt:
+            # If user is attempting password change, enforce all validations
+            context = {
+                'user': user,
+                'all_vehicles': all_vehicles if effective_role in ['admin', 'security'] else None,
+                'user_vehicle': all_vehicles if effective_role == 'user' else None,
+            }
+            
+            if not current_password:
+                messages.error(request, "Current password is required.")
+                return render(request, template_name, context)
+            
+            # Verify current password - CRITICAL CHECK
+            if not user.check_password(current_password):
+                messages.error(request, "❌ Current password is incorrect. Please try again.")
+                return render(request, template_name, context)
+            
+            if not new_password:
+                messages.error(request, "New password is required.")
+                return render(request, template_name, context)
+            
+            if not confirm_password:
+                messages.error(request, "Password confirmation is required.")
+                return render(request, template_name, context)
+            
+            # Password strength validation
+            if len(new_password) < 8:
+                messages.error(request, "New password must be at least 8 characters long.")
+                return render(request, template_name, context)
+            
+            if not re.search(r'[A-Z]', new_password):
+                messages.error(request, "New password must contain at least one uppercase letter.")
+                return render(request, template_name, context)
+            
+            if not re.search(r'[a-z]', new_password):
+                messages.error(request, "New password must contain at least one lowercase letter.")
+                return render(request, template_name, context)
+            
+            if not re.search(r'[0-9]', new_password):
+                messages.error(request, "New password must contain at least one number.")
+                return render(request, template_name, context)
+            
+            if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:,.<>?]', new_password):
+                messages.error(request, "New password must contain at least one special character (!@#$%^&*()_+-=[]{}:,.<>?).")
+                return render(request, template_name, context)
+            
+            if new_password != confirm_password:
+                messages.error(request, "New passwords do not match.")
+                return render(request, template_name, context)
+            
+            if new_password == current_password:
+                messages.error(request, "New password cannot be the same as current password.")
+                return render(request, template_name, context)
+            
+            # All checks passed, update password
+            # Set the raw password and let the model's save() method handle hashing
+            user.password = new_password
+            user.save()
+            messages.success(request, "✅ Password updated successfully!")
+            # Render the page with success message (don't redirect)
+            return render(request, template_name, context)
+
         # === Handle profile update (corporate_email and role are immutable) ===
-        firstname = request.POST.get('firstname')
-        lastname = request.POST.get('lastname')
-        middlename = request.POST.get('middlename')
-        suffix = request.POST.get('suffix')
-        address = request.POST.get('address')
-        contact = request.POST.get('contact')
-        dl_number = request.POST.get('dl_number')
+        firstname = request.POST.get('firstname', '').strip()
+        lastname = request.POST.get('lastname', '').strip()
+        middlename = request.POST.get('middlename', '').strip()
+        suffix = request.POST.get('suffix', '').strip()
+        address = request.POST.get('address', '').strip()
+        contact = request.POST.get('contact', '').strip()
+        dl_number = request.POST.get('dl_number', '').strip()
         school_role = request.POST.get('school_role') or None
         college = request.POST.get('college') or None
         program = request.POST.get('program') or None
 
-        if firstname is not None:
-            user.firstname = firstname
-        if lastname is not None:
-            user.lastname = lastname
-        if middlename is not None:
-            user.middlename = middlename
-        if suffix is not None:
-            user.suffix = suffix
-        if address is not None:
-            user.address = address
-        if contact is not None:
-            user.contact = contact
-        if dl_number is not None:
-            user.dl_number = dl_number
-        if school_role in ['student', 'faculty & staff', 'university official', None, '']:
-            user.school_role = school_role or None
-        if college is not None:
-            user.college = college
-        if program is not None:
-            user.program = program
-
-        # === Handle password update ===
-        new_password = request.POST.get('new_password')
-        confirm_password = request.POST.get('confirm_password')
-
-        if new_password or confirm_password:
-            if new_password and confirm_password and new_password == confirm_password:
-                user.password = new_password
-                messages.success(request, "Password updated successfully.")
-            else:
-                messages.error(request, "Passwords do not match.")
-                return redirect(request.path)
+        # Track if anything changed
+        profile_changed = False
         
-        user.save()
-        messages.success(request, "Profile updated successfully.")
-        return redirect(request.path)
+        if firstname and firstname != user.firstname:
+            user.firstname = firstname
+            profile_changed = True
+        
+        if lastname and lastname != user.lastname:
+            user.lastname = lastname
+            profile_changed = True
+        
+        if middlename != (user.middlename or ''):
+            user.middlename = middlename or None
+            profile_changed = True
+        
+        if suffix != (user.suffix or ''):
+            user.suffix = suffix or None
+            profile_changed = True
+        
+        if address and address != (user.address or ''):
+            user.address = address
+            profile_changed = True
+        
+        if contact != (user.contact or ''):
+            user.contact = contact or None
+            profile_changed = True
+        
+        if dl_number and dl_number != (user.dl_number or ''):
+            user.dl_number = dl_number
+            profile_changed = True
+        
+        if school_role in ['student', 'faculty & staff', 'university official', None, '']:
+            if school_role != user.school_role:
+                user.school_role = school_role or None
+                profile_changed = True
+        
+        if college and college != (user.college or ''):
+            user.college = college
+            profile_changed = True
+        
+        if program and program != (user.program or ''):
+            user.program = program
+            profile_changed = True
+
+        if profile_changed:
+            user.save()
+            messages.success(request, "Profile updated successfully.")
+        else:
+            messages.info(request, "No changes were made.")
+        
+        # Render the same page with messages instead of redirecting
+        context = {
+            'user': user,
+            'all_vehicles': all_vehicles if effective_role in ['admin', 'security'] else None,
+            'user_vehicle': all_vehicles if effective_role == 'user' else None,
+        }
+        return render(request, template_name, context)
 
     # === GET Request ===
     context = {
-        'user': user
+        'user': user,
+        'all_vehicles': all_vehicles if effective_role in ['admin', 'security'] else None,
+        'user_vehicle': all_vehicles if effective_role == 'user' else None,
     }
-
-    # Role-specific template and context
-    if user.role == 'admin':
-        context['all_vehicles'] = Vehicle.objects.select_related('applicant').all()
-        template_name = 'Settings/admin_settings.html'
-    elif user.role == 'security':
-        context['all_vehicles'] = Vehicle.objects.select_related('applicant').all()
-        template_name = 'Settings/security_settings.html'
-    elif user.role == 'user':
-        context['user_vehicle'] = Vehicle.objects.filter(applicant=user)
-        template_name = 'Settings/user_settings.html'
-    else:
-        messages.error(request, "Unknown role. Contact admin.")
-        return redirect('home')
 
     return render(request, template_name, context)
 

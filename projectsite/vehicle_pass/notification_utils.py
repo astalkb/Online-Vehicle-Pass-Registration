@@ -87,7 +87,7 @@ def create_registration_notification(registration):
         email_subject=status_info['email_subject'],
         email_body=email_body,
         related_object_type='registration',
-        related_object_id=registration.id
+        related_object_id=getattr(registration, 'registration_number', None)
     )
     
     # Try to send email immediately (since no background workers)

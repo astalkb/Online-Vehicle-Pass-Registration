@@ -46,7 +46,7 @@
                 <h2 class="title mb-3 mb-md-0">Manage User</h2>
                 <div class="d-flex align-items-center gap-3">
                     <!-- Notification Bell -->
-                    <a href="Announcements.html" class="text-decoration-none position-relative">
+                    <a href="#" class="text-decoration-none position-relative" title="Announcements">
                         <img src="{% static 'images/notification.png' %}" alt="Notifications" width="30" height="30">
                     </a>
                 </div>
@@ -81,7 +81,7 @@
                             <td>{{ user.role }}</td>
                             <td>
                                 <a href="{% url 'admin_view_specific_user' user.pk %}" class="btn btn-info">View</a>
-                                <button class="btn btn-danger">Delete</button>
+                                <a href="{% url 'admin_delete_user' user.pk %}" class="btn btn-danger">Delete</a>
                             </td>
                         </tr>
                         {% empty %}

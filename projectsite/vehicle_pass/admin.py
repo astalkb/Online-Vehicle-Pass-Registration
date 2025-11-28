@@ -33,6 +33,50 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('role', 'school_role', 'created_at', 'updated_at')
         }),
     )
+    
+    def save_model(self, request, obj, form, change):
+        """Keep role and related profiles in sync when edited via Django admin.
+
+        Behaviour:
+        - If role changed to 'admin': ensure an AdminProfile exists and remove any SecurityProfile.
+        - If role changed to 'security': ensure a SecurityProfile exists and remove any AdminProfile.
+        - If role changed to 'user': remove AdminProfile and SecurityProfile if present.
+        """
+        old_role = None
+        if change:
+            try:
+                old = UserProfile.objects.get(pk=obj.pk)
+                old_role = old.role
+            except UserProfile.DoesNotExist:
+                old_role = None
+
+        super().save_model(request, obj, form, change)
+
+        # Sync profiles based on the new role
+        new_role = getattr(obj, 'role', None)
+
+        # Helper: create AdminProfile with next admin_id if needed
+        if new_role == 'admin':
+            # create AdminProfile if none exists
+            if not AdminProfile.objects.filter(user=obj).exists():
+                # determine next admin_id
+                last = AdminProfile.objects.order_by('-admin_id').first()
+                next_id = last.admin_id + 1 if last else 1
+                AdminProfile.objects.create(user=obj, admin_id=next_id)
+            # remove security profile if present
+            SecurityProfile.objects.filter(user=obj).delete()
+
+        elif new_role == 'security':
+            # create SecurityProfile if none exists
+            if not SecurityProfile.objects.filter(user=obj).exists():
+                SecurityProfile.objects.create(user=obj, badgeNumber='0000', job_title='Security')
+            # remove admin profile(s) if present
+            AdminProfile.objects.filter(user=obj).delete()
+
+        else:  # new_role is 'user' or None
+            # remove both profiles if present
+            SecurityProfile.objects.filter(user=obj).delete()
+            AdminProfile.objects.filter(user=obj).delete()
 
 
 @admin.register(SecurityProfile)

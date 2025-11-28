@@ -36,12 +36,16 @@
     <!-- Main Content -->
     <div class="main-content">
         <div class="container-fluid py-3">
+            <!-- Messages/Notifications -->
+            {% include "includes/message.html" %}
+            
+            {# Debug info removed - do not display session/db ids in UI #}
             <!-- Title & Top Bar -->
             <div class="d-flex justify-content-between align-items-center">
                 <h2 class="title mb-3 mb-md-0">Settings</h2>
                 <div class="d-flex align-items-center gap-3">
                     <!-- Notification Bell -->
-                    <a href="Announcements.html" class="text-decoration-none position-relative">
+                    <a href="#" class="text-decoration-none position-relative" title="Announcements">
                         <img src="{% static 'images/notification.png' %}" alt="Notifications" width="30" height="30">
                         <div class="notification-badge"></div>
                     </a>
@@ -51,6 +55,8 @@
             <hr class="border-secondary">
             <small><span id="date" class="text-light"></span></small>
 
+            <form method="POST" enctype="multipart/form-data" id="personal-info-form">
+            {% csrf_token %}
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="section-title m-0">Personal Information</h5>
@@ -77,34 +83,40 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Contact Number</label>
-                                <input type="text" class="form-control  readonly-field" name="contact" value="{{ user.contact|default:'' }}" readonly>
+                                <input type="text" class="form-control" name="contact" value="{{ user.contact|default:'' }}">
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">First Name</label>
-                                <input type="text" class="form-control readonly-field" name="firstname" value="{{ user.firstname|default:'' }}" readonly>
+                                <input type="text" class="form-control" name="firstname" value="{{ user.firstname|default:'' }}">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Last Name</label>
-                                <input type="text" class="form-control  readonly-field" name="lastname" value="{{ user.lastname|default:'' }}" readonly>
+                                <input type="text" class="form-control" name="lastname" value="{{ user.lastname|default:'' }}">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Middle Name</label>
-                                <input type="text" class="form-control  readonly-field" name="middlename" value="{{ user.middlename|default:'' }}" readonly>
+                                <input type="text" class="form-control" name="middlename" value="{{ user.middlename|default:'' }}">
                             </div>
                             <div class="col-md-1 mb-3">
                                 <label class="form-label">Suffix</label>
-                                <input type="text" class="form-control  readonly-field" name="suffix" value="{{ user.suffix|default:'' }}" readonly>
+                                <input type="text" class="form-control" name="suffix" value="{{ user.suffix|default:'' }}">
                             </div>
                         </div>
                     </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary" style="background-color: var(--primary-highlight, #FFD700); color: black; border: none;">
+                            <i class="fas fa-save me-2"></i> Save Personal Information
+                        </button>
+                    </div>
                 </div>
+            </form>
                 
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" enctype="multipart/form-data" id="password-form">
             {% csrf_token %}
-                 <div class="card mb-4">
+                <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="section-title m-0">Change Password</h5>
                     </div>
@@ -112,17 +124,23 @@
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Current Password</label>
-                                <input type="password" class="form-control" name="current_password" autocomplete="current-password">
+                                <input type="password" class="form-control" name="current_password" autocomplete="current-password" placeholder="Enter your current password">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">New Password</label>
-                                <input type="password" class="form-control" name="new_password" autocomplete="new-password">
+                                <input type="password" class="form-control" name="new_password" autocomplete="new-password" placeholder="Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char">
+                                <small class="text-muted d-block mt-1">Requirements: At least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, 1 special character (!@#$%^&*)</small>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Confirm Password</label>
-                                <input type="password" class="form-control" name="confirm_password" autocomplete="new-password">
+                                <input type="password" class="form-control" name="confirm_password" autocomplete="new-password" placeholder="Re-enter your new password">
                             </div>
                         </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary" style="background-color: var(--primary-highlight, #FFD700); color: black; border: none;">
+                            <i class="fas fa-lock me-2"></i> Update Password
+                        </button>
                     </div>
                 </div>
             </form>
@@ -176,4 +194,107 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <script src="{% static 'javascript/User_Dashboard.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle password form validation
+            const passwordForm = document.getElementById('password-form');
+            if (passwordForm) {
+                passwordForm.addEventListener('submit', function(e) {
+                    const currentPassword = document.querySelector('input[name="current_password"]').value.trim();
+                    const newPassword = document.querySelector('input[name="new_password"]').value.trim();
+                    const confirmPassword = document.querySelector('input[name="confirm_password"]').value.trim();
+                    
+                    // Check if any password field has a value
+                    const passwordAttempt = currentPassword || newPassword || confirmPassword;
+                    
+                    if (passwordAttempt) {
+                        // Password change attempt - validate all fields
+                        if (!currentPassword) {
+                            e.preventDefault();
+                            alert('❌ Current password is required.');
+                            document.querySelector('input[name="current_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!newPassword) {
+                            e.preventDefault();
+                            alert('❌ New password is required.');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!confirmPassword) {
+                            e.preventDefault();
+                            alert('❌ Password confirmation is required.');
+                            document.querySelector('input[name="confirm_password"]').focus();
+                            return false;
+                        }
+                        
+                        // Password strength validation
+                        if (newPassword.length < 8) {
+                            e.preventDefault();
+                            alert('❌ New password must be at least 8 characters long.');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!/[A-Z]/.test(newPassword)) {
+                            e.preventDefault();
+                            alert('❌ New password must contain at least one uppercase letter (A-Z).');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!/[a-z]/.test(newPassword)) {
+                            e.preventDefault();
+                            alert('❌ New password must contain at least one lowercase letter (a-z).');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!/[0-9]/.test(newPassword)) {
+                            e.preventDefault();
+                            alert('❌ New password must contain at least one number (0-9).');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (!/[!@#$%^&*()_+\-=\[\]{};:,.<>?]/.test(newPassword)) {
+                            e.preventDefault();
+                            alert('❌ New password must contain at least one special character (!@#$%^&*()_+-=[]{}:,.<>?).');
+                            document.querySelector('input[name="new_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (newPassword !== confirmPassword) {
+                            e.preventDefault();
+                            alert('❌ New passwords do not match.');
+                            document.querySelector('input[name="confirm_password"]').focus();
+                            return false;
+                        }
+                        
+                        if (newPassword === currentPassword) {
+                            e.preventDefault();
+                            alert('❌ New password cannot be the same as current password.');
+                            return false;
+                        }
+                    } else {
+                        // No password fields filled - prevent submission
+                        e.preventDefault();
+                        alert('⚠️ Please enter all password fields to change your password.');
+                        return false;
+                    }
+                });
+            }
+
+            // Handle personal info form - optional validation
+            const personalForm = document.getElementById('personal-info-form');
+            if (personalForm) {
+                personalForm.addEventListener('submit', function(e) {
+                    // Personal info form can be submitted even if empty
+                    // Backend will handle "no changes made" message
+                });
+            }
+        });
+    </script>
 {% endblock %}

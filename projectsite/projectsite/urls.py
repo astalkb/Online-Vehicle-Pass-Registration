@@ -11,6 +11,7 @@ from vehicle_pass.views import (
     AdminViewApplication, AdminViewSpecificApplication, AdminUpdateApplication,
     admin_manage_application, admin_manage_passes, admin_report,
 
+    dashboard_redirect,
     
     #settings_view
     faq, about_us, contact_us,  # Add your views here
@@ -21,6 +22,7 @@ from vehicle_pass.views import (
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
+    path('dashboard/', dashboard_redirect, name='dashboard_redirect'),
     path("login/", login_view, name="login"),
     path('signup/', signup_view, name="signup"),
     path("logout/", logout_view, name="logout"),
@@ -65,15 +67,15 @@ urlpatterns = [
 
     #ADMIN USER CRUD
     path("dashboard/admin/manage_users/add/", AdminCreateUser.as_view(), name="admin_create_user"),
-    path("dashboard/admin/manage_users/<pk>/", AdminUpdateUser.as_view(), name="admin_update_user"),
-    path("dashboard/admin/manage_users/view/<pk>", AdminViewSpecificUser.as_view(), name="admin_view_specific_user"),
-    path("dashboard/admin/manage_users/delete/<pk>/", AdminDeleteUser.as_view(), name="admin_delete_user"),
     path("dashboard/admin/manage_users/", AdminViewUser.as_view(), name="admin_manage_user"),
+    path("dashboard/admin/manage_users/view/<int:pk>/", AdminViewSpecificUser.as_view(), name="admin_view_specific_user"),
+    path("dashboard/admin/manage_users/<int:pk>/", AdminUpdateUser.as_view(), name="admin_update_user"),
+    path("dashboard/admin/manage_users/delete/<int:pk>/", AdminDeleteUser.as_view(), name="admin_delete_user"),
 
     #ADMIN APPLICATION CRUD
-    path("dashboard/admin/manage_application/<pk>/", AdminUpdateApplication.as_view(), name="admin_update_application"),
-    path("dashboard/admin/manage_application/view/<pk>", AdminViewSpecificApplication.as_view(), name="admin_view_specific_application"),    
     path("dashboard/admin/manage_application/", AdminViewApplication.as_view(), name="admin_manage_application"),
+    path("dashboard/admin/manage_application/view/<int:pk>/", AdminViewSpecificApplication.as_view(), name="admin_view_specific_application"),    
+    path("dashboard/admin/manage_application/<int:pk>/", AdminUpdateApplication.as_view(), name="admin_update_application"),
     
     path("dashboard/admin/manage_passes/", admin_manage_passes, name="admin_manage_passes"),
     path("dashboard/admin/manage_report/", admin_report, name="admin_report"),    

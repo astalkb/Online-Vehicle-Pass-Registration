@@ -36,48 +36,48 @@ class UserProfileForm(forms.ModelForm):
         fields = '__all__' 
 
 class RegistrationForm(forms.ModelForm):
-    pass
-    # class Meta:
-    #     model = Registration
-    #     fields = ['status', 'remarks', 'initial_approved_by', 'final_approved_by']
-    #     labels = {
-    #         'initial_approved_by': 'Security Personnel (OIC)',
-    #         'final_approved_by': 'GSO Director',
-    #     }
+    class Meta:
+        model = Registration
+        fields = ['status', 'remarks', 'initial_approved_by', 'final_approved_by']
+        labels = {
+            'initial_approved_by': 'Security Personnel (OIC)',
+            'final_approved_by': 'GSO Director',
+        }
 
-    # def __init__(self, *args, **kwargs):
-    #     self.user = kwargs.pop('user', None)
-    #     super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
 
-    #     security_profile = getattr(self.user, 'securityprofile', None)
+        security_profile = getattr(self.user, 'securityprofile', None)
 
-    #     application = self.instance
+        application = self.instance
 
-    #     if security_profile.level == 'guard':
-    #         for field in self.fields:
-    #             self.fields[field].disabled = True
-        
-    #     elif security_profile.level == 'oic':
-    #         self.fields['final_approved_by'].disabled = True
+        # security_profile may be None (e.g. user without a SecurityProfile)
+        if security_profile and getattr(security_profile, 'level', None) == 'guard':
+            for field in self.fields:
+                self.fields[field].disabled = True
 
-    #     if self.user:
-    #         try:
-    #             # Get UserProfile instance
-    #             if isinstance(self.user, str):
-    #                 user_profile = UserProfile.objects.get(id=self.user)
-    #             else:
-    #                 user_profile = self.user
+        elif security_profile and getattr(security_profile, 'level', None) == 'oic':
+            self.fields['final_approved_by'].disabled = True
+
+        if self.user:
+            try:
+                # Get UserProfile instance
+                if isinstance(self.user, str):
+                    user_profile = UserProfile.objects.get(id=self.user)
+                else:
+                    user_profile = self.user
                 
-    #             security_profile = SecurityProfile.objects.get(user=user_profile)
+                security_profile = SecurityProfile.objects.get(user=user_profile)
                 
-    #             # Restrict choices to ONLY this security profile - this is the key change
-    #             self.fields['document_reviewed_by'].queryset = SecurityProfile.objects.filter(id=security_profile.id)
+                # Restrict choices to ONLY this security profile - this is the key change
+                self.fields['document_reviewed_by'].queryset = SecurityProfile.objects.filter(id=security_profile.id)
                 
-    #             # Set the initial value
-    #             self.fields['document_reviewed_by'].initial = security_profile
+                # Set the initial value
+                self.fields['document_reviewed_by'].initial = security_profile
                 
-    #         except SecurityProfile.DoesNotExist:
-    #             self.fields['document_reviewed_by'].initial = None
+            except SecurityProfile.DoesNotExist:
+                self.fields['document_reviewed_by'].initial = None
 
     # def save(self, commit=True):
     #     instance = super().save(commit=False)

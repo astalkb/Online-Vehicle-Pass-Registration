@@ -1,23 +1,308 @@
 {% load static %}
 {% block content %}
-<div class="content">
-    <div class="container-fluid">
-        <h4 class="page-title">Delete User</h4>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                    </div>
+<style>
+    :root {
+        --bg: #000000;
+        --text: #ffffff;
+        --muted-text: #d5d5d5;
+        --panel: #292929;
+        --panel-dark: #1e1e1e;
+        --panel-darker: #111111;
+        --border: #444444;
+        --primary-highlight: #FFD700;
+        --secondary-highlight: #ff9800;
+        --danger: #ff4757;
+        --success: #2ed573;
+        --info: #0dcaf0;
+    }
 
-                    <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            <p>Are you sure you want to delete "{{ object }}"?</p>
-                            {% csrf_token %}
-                            {% include 'Forms/form.html' %}
-                        </form>
-                    </div>
+    .delete-confirmation-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: var(--bg);
+        padding: 20px;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    .delete-confirmation-card {
+        background-color: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        max-width: 500px;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .delete-header {
+        background: linear-gradient(135deg, var(--danger), #d73b3b);
+        padding: 40px 30px;
+        text-align: center;
+        color: white;
+        border-bottom: 1px solid rgba(255, 71, 87, 0.2);
+    }
+
+    .delete-header-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+        display: block;
+        animation: pulse-icon 2s infinite;
+    }
+
+    @keyframes pulse-icon {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    .delete-header h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        color: white;
+        letter-spacing: 0.5px;
+    }
+
+    .delete-header p {
+        margin: 8px 0 0 0;
+        font-size: 13px;
+        opacity: 0.95;
+        letter-spacing: 0.3px;
+    }
+
+    .delete-body {
+        padding: 30px;
+    }
+
+    .user-info-box {
+        background: var(--panel-dark);
+        border-left: 3px solid var(--primary-highlight);
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .user-info-box:hover {
+        border-left-color: var(--secondary-highlight);
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.1);
+    }
+
+    .user-info-label {
+        font-size: 11px;
+        color: var(--muted-text);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        opacity: 0.8;
+    }
+
+    .user-info-value {
+        font-size: 15px;
+        color: var(--text);
+        font-weight: 500;
+        word-break: break-all;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .role-badge.admin {
+        background-color: rgba(255, 71, 87, 0.2);
+        color: #ff7080;
+        border: 1px solid #ff4757;
+    }
+
+    .role-badge.security {
+        background-color: rgba(255, 152, 0, 0.2);
+        color: #ffb74d;
+        border: 1px solid #ff9800;
+    }
+
+    .role-badge.user {
+        background-color: rgba(13, 202, 240, 0.2);
+        color: #66d9ff;
+        border: 1px solid #0dcaf0;
+    }
+
+    .warning-message {
+        background: rgba(255, 152, 0, 0.1);
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        border-radius: 6px;
+        padding: 14px 16px;
+        margin-bottom: 25px;
+        color: #ffb74d;
+        font-size: 13px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        line-height: 1.5;
+    }
+
+    .warning-message i {
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-size: 16px;
+    }
+
+    .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 30px;
+    }
+
+    .btn-delete-confirm,
+    .btn-cancel {
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: none;
+    }
+
+    .btn-delete-confirm {
+        background: linear-gradient(135deg, var(--danger), #d73b3b);
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 71, 87, 0.2);
+    }
+
+    .btn-delete-confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 71, 87, 0.35);
+        background: linear-gradient(135deg, #ff6b7a, #e83642);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-delete-confirm:active {
+        transform: translateY(0);
+    }
+
+    .btn-cancel {
+        background: var(--panel-dark);
+        color: var(--muted-text);
+        border: 1px solid var(--border) !important;
+    }
+
+    .btn-cancel:hover {
+        background: var(--border);
+        border-color: var(--primary-highlight) !important;
+        color: var(--primary-highlight);
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.1);
+    }
+
+    .btn-cancel:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 600px) {
+        .delete-confirmation-wrapper {
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .delete-header {
+            padding: 30px 20px;
+        }
+
+        .delete-header h2 {
+            font-size: 20px;
+        }
+
+        .delete-body {
+            padding: 20px;
+        }
+
+        .user-info-box {
+            margin-bottom: 15px;
+            padding: 12px;
+        }
+
+        .btn-delete-confirm,
+        .btn-cancel {
+            padding: 14px 20px;
+            font-size: 13px;
+        }
+    }
+</style>
+
+<div class="delete-confirmation-wrapper">
+    <div class="delete-confirmation-card">
+        <div class="delete-header">
+            <i class="fas fa-exclamation-triangle delete-header-icon"></i>
+            <h2>Delete User Account</h2>
+            <p>This action cannot be undone</p>
+        </div>
+
+        <div class="delete-body">
+            <div class="user-info-box">
+                <div class="user-info-label">
+                    <i class="fas fa-user-circle" style="margin-right: 4px;"></i>Full Name
+                </div>
+                <div class="user-info-value">
+                    {{ object.firstname }} {{ object.lastname }}
                 </div>
             </div>
+
+            <div class="user-info-box">
+                <div class="user-info-label">
+                    <i class="fas fa-envelope" style="margin-right: 4px;"></i>Email Address
+                </div>
+                <div class="user-info-value">{{ object.corporate_email }}</div>
+            </div>
+
+            <div class="user-info-box">
+                <div class="user-info-label">
+                    <i class="fas fa-shield-alt" style="margin-right: 4px;"></i>Account Role
+                </div>
+                <div class="user-info-value">
+                    <span class="role-badge {% if object.role == 'admin' %}admin{% elif object.role == 'security' %}security{% else %}user{% endif %}">
+                        <i class="fas {% if object.role == 'admin' %}fa-crown{% elif object.role == 'security' %}fa-lock{% else %}fa-user{% endif %}"></i>
+                        {{ object.role|upper }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="warning-message">
+                <i class="fas fa-info-circle"></i>
+                <span>All associated data including vehicle registrations, applications, and activities will be permanently deleted from the system.</span>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="action-buttons">
+                    <button type="submit" class="btn-delete-confirm">
+                        <i class="fas fa-trash-alt"></i> Confirm Delete
+                    </button>
+                    <a href="{% url 'admin_manage_user' %}" class="btn-cancel">
+                        <i class="fas fa-times-circle"></i> Cancel
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
