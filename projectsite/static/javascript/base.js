@@ -20,6 +20,15 @@ function setupSidebarHighlight() {
         const link = item.querySelector("a");
         item.classList.remove("active");
 
+        item.addEventListener("click", () => {
+            const menuName = item.dataset.menu;
+            if (menuName) {
+                localStorage.setItem("activeMenu", menuName);
+            } else {
+                localStorage.removeItem("activeMenu");
+            }
+        });
+
         if (link) {
             const linkPath = normalizePath(new URL(link.href, window.location.origin).pathname);
             if (linkPath === currentPath) {
@@ -31,10 +40,20 @@ function setupSidebarHighlight() {
     });
 
     if (!matchedByPath) {
-        const storedMenu = localStorage.getItem("activeMenu") || sidebarItems[0]?.dataset.menu;
+        const storedMenu = localStorage.getItem("activeMenu");
+        const fallbackMenu = sidebarItems.some(item => item.dataset.menu === storedMenu)
+            ? storedMenu
+            : sidebarItems[0]?.dataset.menu;
+
         sidebarItems.forEach(item => {
-            item.classList.toggle("active", item.dataset.menu === storedMenu);
+            item.classList.toggle("active", item.dataset.menu === fallbackMenu);
         });
+
+        if (fallbackMenu) {
+            localStorage.setItem("activeMenu", fallbackMenu);
+        } else {
+            localStorage.removeItem("activeMenu");
+        }
     }
 }
 

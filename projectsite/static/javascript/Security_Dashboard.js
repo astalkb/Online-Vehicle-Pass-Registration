@@ -151,27 +151,6 @@ function setupMobileSidebar() {
     });
 }
 
-// Highlight active sidebar menu & navigate
-function setupSidebarHighlight() {
-    const sidebarItems = document.querySelectorAll(".sidebar ul li");
-    const activeMenu = localStorage.getItem("activeMenu") || "dashboard";
-
-    sidebarItems.forEach(item => {
-        const menuName = item.dataset.menu;
-        item.classList.toggle("active", menuName === activeMenu);
-
-        item.addEventListener("click", () => {
-            document.querySelector(".sidebar ul li.active")?.classList.remove("active");
-            item.classList.add("active");
-            localStorage.setItem("activeMenu", menuName);
-
-            // Navigate to the corresponding page
-            const link = item.querySelector("a");
-            if (link) window.location.href = link.href;
-        });
-    });
-}
-
 function updateDate() {
     const now = new Date();
     const dateElement = document.getElementById("current-date");

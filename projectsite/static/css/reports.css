@@ -471,3 +471,115 @@ body {
 .report-filter-form .form-select,
 .report-filter-form .form-control,
 .report-filter-form .btn { width: 100%; box-sizing: border-box; }
+
+.report-results-panel {
+    background-color: var(--panel-darker);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 32px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.report-results-title {
+    color: var(--primary-highlight);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.report-results-panel table {
+    color: var(--text);
+}
+
+.report-table-card {
+    background: linear-gradient(145deg, #1c1c1c, #141414);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+}
+
+.report-table-card table {
+    margin-bottom: 0;
+}
+
+.report-table-card thead th {
+    background-color: rgba(255,255,255,0.03);
+    color: var(--primary-highlight);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.report-table-card tbody tr {
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.report-table-card tbody tr:hover {
+    background-color: rgba(255,255,255,0.04);
+    transform: translateX(2px);
+}
+
+.dataTables_wrapper .dataTables_length label,
+.dataTables_wrapper .dataTables_filter label {
+    color: var(--muted-text);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+    background-color: #111;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-left: 8px;
+}
+
+.dataTables_wrapper .dataTables_filter input::placeholder {
+    color: var(--muted-text);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: var(--primary-highlight) !important;
+    color: #000 !important;
+    border-color: transparent !important;
+}
+
+.report-results-panel .report-card.result-card {
+    min-height: 120px;
+    padding: 18px 20px;
+}
+
+.report-results-meta .meta-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    color: var(--muted-text);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.report-results-meta .meta-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+    word-break: break-word;
+}
+
+.report-results-panel .dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: var(--text) !important;
+}
+
+.report-filter-form [data-filter-section="status"].d-none,
+.report-filter-form [data-filter-section="deadline"].d-none {
+    display: none !important;
+}
+
+.report-filter-form .form-check.form-switch {
+    padding-left: 2.25rem;
+}

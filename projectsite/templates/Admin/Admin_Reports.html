@@ -61,7 +61,7 @@
             <form method="get" action="{% url 'admin_reports' %}" class="report-filter-form" id="report-filter-form">
                 <div class="row g-3">
                     <!-- Report Type -->
-                    <div class="col-md-3">
+                    <div class="col-12 col-md-6 col-lg-3">
                         <label for="report_type" class="form-label">Report Type</label>
                         <select name="report_type" id="report_type" class="form-select">
                             <optgroup label="Status Summary">
@@ -94,7 +94,7 @@
                     </div>
 
                     <!-- Year Selection -->
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-3 col-lg-2">
                         <label for="report_year" class="form-label">Year</label>
                         <select name="year" id="report_year" class="form-select">
                             {% if report_year %}
@@ -105,7 +105,7 @@
                     </div>
 
                     <!-- Semester Selection -->
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-3 col-lg-2">
                         <label for="report_semester" class="form-label">Semester</label>
                         <select name="semester" id="report_semester" class="form-select">
                             <option value="">All Semesters</option>
@@ -114,8 +114,22 @@
                         </select>
                     </div>
 
+                    <!-- Status Focus -->
+                    <div class="col-12 col-md-6 col-lg-2" data-filter-section="status">
+                        <label for="status_filter" class="form-label">Report Focus Status</label>
+                        <select name="status" id="status_filter" class="form-select">
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                        </select>
+                        <div class="form-check form-switch mt-2" data-filter-section="deadline">
+                            <input class="form-check-input" type="checkbox" role="switch" id="nearing_deadline" name="nearing_deadline" value="true" {% if nearing_deadline %}checked{% endif %}>
+                            <label class="form-check-label" for="nearing_deadline">Only show nearing deadlines</label>
+                        </div>
+                    </div>
+
                     <!-- Actions Column -->
-                    <div class="col-md-5">
+                    <div class="col-12 col-md-6 col-lg-3">
                         <div class="d-flex align-items-end h-100">
                             <div class="d-flex">
                                 <button type="submit" class="btn btn-primary" style="background-color: var(--primary-highlight); color: black; border: none; white-space: nowrap; padding: 0 16px; height: 38px; line-height: 38px;">
@@ -133,6 +147,91 @@
                 </div>
             </form>
 
+            <!-- ============================================== -->
+            <!--            FILTERED TABLE RESULTS               -->
+            <!-- ============================================== -->
+            <section class="report-results-panel mt-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h3 class="report-results-title mb-1">{{ report_label }}</h3>
+                        <p class="text-muted small mb-0">
+                            Showing {{ report_results_count }} record{{ report_results_count|pluralize }} based on current filters
+                        </p>
+                    </div>
+                    <span class="badge rounded-pill text-dark" style="background-color: var(--primary-highlight);">
+                        CSV export uses the same filters
+                    </span>
+                </div>
+
+                <div class="row g-3 report-results-meta mt-2">
+                    <div class="col-6 col-lg-3">
+                        <div class="report-card card-primary result-card">
+                            <p class="meta-label">Report Type</p>
+                            <p class="meta-value">{{ report_label }}</p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="report-card card-success-color result-card">
+                            <p class="meta-label">Year Filter</p>
+                            <p class="meta-value">{{ report_year|default:"All Years" }}</p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="report-card card-info-color result-card">
+                            <p class="meta-label">Semester Filter</p>
+                            <p class="meta-value">
+                                {% if report_semester == '1' %}Semester 1{% elif report_semester == '2' %}Semester 2{% else %}All Semesters{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="report-card card-secondary result-card">
+                            <p class="meta-label">Status Focus</p>
+                            <p class="meta-value">
+                                {% if status_filter == 'pending' %}
+                                    Pending
+                                {% elif status_filter == 'all' %}
+                                    All Statuses
+                                {% else %}
+                                    Completed
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {% if report_table_headers %}
+                    <div class="report-card card-muted-color report-table-card mt-3">
+                        <div class="table-responsive">
+                            <table id="report-results-table" class="table table-dark table-hover align-middle w-100">
+                                <thead>
+                                    <tr>
+                                        {% for header in report_table_headers %}
+                                            <th scope="col">{{ header }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in report_table_rows %}
+                                        <tr>
+                                            {% for cell in row %}
+                                                <td>{{ cell }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if not report_table_rows %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        No records match the current filters. Try adjusting the report type, date range, or status.
+                    </div>
+                {% endif %}
+            </section>
+            
             <!-- ============================================== -->
             <!--             REGISTRATION BREAKDOWN             -->
             <!-- ============================================== -->
@@ -248,13 +347,16 @@
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
     <script>
-        // Enhance UX: auto-populate Year dropdown, disable Semester unless report_type == 'semester', and keep CSV link updated
+        // Enhance UX: auto-populate Year dropdown, toggle filter-only controls, sync CSV, and initialize the preview table
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('report-filter-form');
             const downloadButton = document.getElementById('download-csv-btn');
             const reportTypeEl = document.getElementById('report_type');
             const yearEl = document.getElementById('report_year');
             const semesterEl = document.getElementById('report_semester');
+            const statusEl = document.getElementById('status_filter');
+            const deadlineSwitch = document.getElementById('nearing_deadline');
+            const statusSection = document.querySelector('[data-filter-section="status"]');
+            const deadlineSection = document.querySelector('[data-filter-section="deadline"]');
 
             // Populate year select with recent years (current down to -5)
             const populateYears = (selectEl) => {
@@ -279,24 +381,80 @@
             const updateDownloadLink = () => {
                 const reportType = reportTypeEl ? reportTypeEl.value : '';
                 const year = yearEl ? yearEl.value : '';
-                const semester = semesterEl && !semesterEl.disabled ? semesterEl.value : '';
+                const semester = semesterEl ? semesterEl.value : '';
+                const status = statusEl && !statusEl.disabled ? statusEl.value : '';
                 const params = new URLSearchParams({
                     report_type: reportType,
                     year: year,
                     semester: semester
-                }).toString();
+                });
+                if (status) {
+                    params.set('status', status);
+                }
+                if (deadlineSwitch && !deadlineSwitch.disabled && deadlineSwitch.checked) {
+                    params.set('nearing_deadline', 'true');
+                }
 
-                if (downloadButton) downloadButton.href = "{% url 'download_reports_csv' %}" + '?' + params;
+                if (downloadButton) downloadButton.href = "{% url 'download_reports_csv' %}?" + params.toString();
+            };
+
+            const toggleFilterUI = () => {
+                const selectedType = reportTypeEl ? reportTypeEl.value : '';
+                const allowStatusFilter = selectedType && (selectedType === 'status_summary' || selectedType.includes('status'));
+                const isStatusSummary = selectedType === 'status_summary';
+
+                if (statusSection) {
+                    statusSection.classList.toggle('d-none', !allowStatusFilter);
+                }
+                if (statusEl) {
+                    statusEl.disabled = !allowStatusFilter;
+                }
+                const showDeadline = isStatusSummary && statusEl && statusEl.value === 'pending';
+                if (deadlineSection) {
+                    deadlineSection.classList.toggle('d-none', !showDeadline);
+                }
+                if (deadlineSwitch) {
+                    deadlineSwitch.disabled = !showDeadline;
+                    if (!showDeadline) deadlineSwitch.checked = false;
+                }
             };
 
             // initial setup
             populateYears(yearEl);
+            toggleFilterUI();
             updateDownloadLink();
 
+            const initTable = () => {
+                const table = $('#report-results-table');
+                if (table.length) {
+                    table.DataTable({
+                        responsive: true,
+                        pageLength: 10,
+                        order: [],
+                        language: {
+                            emptyTable: "No records available for the selected filters"
+                        }
+                    });
+                }
+            };
+            initTable();
+
             // attach listeners
-            if (reportTypeEl) reportTypeEl.addEventListener('change', updateDownloadLink);
+            if (reportTypeEl) {
+                reportTypeEl.addEventListener('change', () => {
+                    toggleFilterUI();
+                    updateDownloadLink();
+                });
+            }
             if (yearEl) yearEl.addEventListener('change', updateDownloadLink);
             if (semesterEl) semesterEl.addEventListener('change', updateDownloadLink);
+            if (statusEl) {
+                statusEl.addEventListener('change', () => {
+                    toggleFilterUI();
+                    updateDownloadLink();
+                });
+            }
+            if (deadlineSwitch) deadlineSwitch.addEventListener('change', updateDownloadLink);
 
         });
     </script>

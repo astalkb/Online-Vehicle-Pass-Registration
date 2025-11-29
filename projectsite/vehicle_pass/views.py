@@ -766,13 +766,167 @@ def admin_manage_passes(request):
     return render(request, "Admin/Admin_Manage_Passes.html", context)
 
 
+REPORT_TYPE_LABELS = {
+    'status_summary': 'Status & Grouping Summary',
+    'annual': 'Annual Transactions',
+    'semester': 'Semester Transactions',
+    'payment_college': 'Payment by College',
+    'payment_program': 'Payment by Program',
+    'payment_department': 'Payment by Department',
+    'payment_personnel': 'Payment by University Personnel',
+    'payment_faculty': 'Payment by Faculty',
+    'payment_role': 'Payment by Role',
+    'payment_status': 'Payment by Status',
+    'payment_deadline': 'Payments Nearing Deadline',
+    'trans_college': 'Transactions by College',
+    'trans_program': 'Transactions by Program',
+    'trans_department': 'Transactions by Department',
+    'trans_personnel': 'Transactions by University Personnel',
+    'trans_faculty': 'Transactions by Faculty',
+    'trans_role': 'Transactions by Role',
+    'trans_status': 'Transactions by Status',
+}
+
+
+def get_report_table_definition(report_type):
+    """
+    Returns a tuple (headers, row_builder) where row_builder maps a Registration
+    instance to a list of cell values ready for tabular rendering/export.
+    """
+    timezone_name = pytz.timezone(settings.TIME_ZONE)
+
+    def format_datetime(dt):
+        if not dt:
+            return ''
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, pytz.UTC)
+        return dt.astimezone(timezone_name).strftime("%Y-%m-%d %H:%M")
+
+    def applicant_name(reg):
+        firstname = getattr(reg.user, 'firstname', '') or ''
+        lastname = getattr(reg.user, 'lastname', '') or ''
+        return f"{firstname} {lastname}".strip() or reg.user.corporate_email
+
+    def vehicle_type(reg):
+        vehicle = getattr(reg, 'vehicle', None)
+        vtype = getattr(vehicle, 'type', '') if vehicle else ''
+        return vtype.title() if isinstance(vtype, str) and vtype else 'N/A'
+
+    def vehicle_plate(reg):
+        vehicle = getattr(reg, 'vehicle', None)
+        return getattr(vehicle, 'plate_number', '') if vehicle else ''
+
+    def school_role(reg):
+        value = getattr(reg.user, 'school_role', '')
+        return value.title() if isinstance(value, str) and value else 'N/A'
+
+    def system_role(reg):
+        value = getattr(reg.user, 'role', '')
+        return value.title() if isinstance(value, str) and value else 'N/A'
+
+    def default_row(reg):
+        return [
+            reg.registration_number,
+            reg.status.title(),
+            format_datetime(reg.date_of_filing),
+            getattr(reg.user, 'lastname', ''),
+            getattr(reg.user, 'firstname', ''),
+            reg.user.corporate_email,
+            school_role(reg),
+            reg.user.college if getattr(reg.user, 'college', '') else getattr(reg.user, 'workplace', '') or 'N/A',
+            vehicle_type(reg),
+            vehicle_plate(reg),
+            f"{reg.initial_approved_by.user.firstname} {reg.initial_approved_by.user.lastname}".strip()
+            if reg.initial_approved_by and reg.initial_approved_by.user else '',
+            f"{reg.final_approved_by.user.firstname} {reg.final_approved_by.user.lastname}".strip()
+            if reg.final_approved_by and reg.final_approved_by.user else '',
+            reg.remarks or ''
+        ]
+
+    if report_type.startswith('payment_') and report_type != 'payment_deadline':
+        headers = ['Registration ID', 'Applicant Name', 'Date Filed', 'Status']
+
+        def payment_row(reg):
+            base_data = [
+                reg.registration_number,
+                applicant_name(reg),
+                format_datetime(reg.date_of_filing),
+                reg.status.title(),
+            ]
+            if 'college' in report_type:
+                base_data.append(reg.user.college or 'N/A')
+            elif 'program' in report_type:
+                base_data.append(reg.user.program or 'N/A')
+            elif 'department' in report_type:
+                base_data.append(reg.user.workplace or 'N/A')
+            elif 'personnel' in report_type or 'faculty' in report_type:
+                base_data.append(school_role(reg))
+            elif 'role' in report_type or 'status' in report_type:
+                base_data.append(system_role(reg))
+            return base_data
+
+        if 'college' in report_type:
+            headers.append('College')
+        elif 'program' in report_type:
+            headers.append('Program')
+        elif 'department' in report_type:
+            headers.append('Department/Workplace')
+        elif 'personnel' in report_type or 'faculty' in report_type:
+            headers.append('Institutional Role')
+        elif 'role' in report_type or 'status' in report_type:
+            headers.append('System Role')
+
+        return headers, payment_row
+
+    if report_type.startswith('trans_'):
+        headers = ['Registration ID', 'Status', 'Date Filed', 'Applicant Name']
+
+        def transaction_row(reg):
+            base_data = [
+                reg.registration_number,
+                reg.status.title(),
+                format_datetime(reg.date_of_filing),
+                applicant_name(reg),
+            ]
+            if 'college' in report_type or 'program' in report_type:
+                base_data.extend([reg.user.college or 'N/A', reg.user.program or 'N/A'])
+            elif 'department' in report_type:
+                base_data.extend([reg.user.workplace or 'N/A', school_role(reg)])
+            elif 'personnel' in report_type or 'faculty' in report_type:
+                base_data.extend([reg.user.workplace or 'N/A', school_role(reg)])
+            elif 'role' in report_type or 'status' in report_type:
+                base_data.extend([system_role(reg), school_role(reg)])
+
+            base_data.extend([vehicle_type(reg), vehicle_plate(reg)])
+            return base_data
+
+        if 'college' in report_type or 'program' in report_type:
+            headers.extend(['College', 'Program'])
+        elif 'department' in report_type:
+            headers.extend(['Department/Workplace', 'Institutional Role'])
+        elif 'personnel' in report_type or 'faculty' in report_type:
+            headers.extend(['Department/Workplace', 'Institutional Role'])
+        elif 'role' in report_type or 'status' in report_type:
+            headers.extend(['System Role', 'Institutional Role'])
+
+        headers.extend(['Vehicle Type', 'Plate Number'])
+        return headers, transaction_row
+
+    headers = [
+        'Registration ID', 'Status', 'Date Filed', 'Applicant Last Name', 'Applicant First Name',
+        'Applicant Email', 'Institutional Role', 'College/Workplace', 'Vehicle Type', 'Plate Number',
+        'Initial Approved By', 'Final Approved By', 'Remarks'
+    ]
+    return headers, default_row
+
+
 @login_required
-def get_filtered_registrations(request):
+def get_filtered_registrations(request, default_report_type='status_summary'):
     """
     Helper function to get the base queryset based on URL filters including time and status.
     Used by both report views and the CSV download function.
     """
-    report_type = request.GET.get('report_type', 'status_summary')
+    report_type = request.GET.get('report_type', default_report_type)
     status_filter = request.GET.get('status', 'completed')
     nearing_deadline = request.GET.get('nearing_deadline') == 'true'
     report_year = request.GET.get('year')
@@ -790,6 +944,8 @@ def get_filtered_registrations(request):
             base_queryset = base_queryset.filter(
                 status__in=['approved', 'sticker released']
             )
+        elif status_filter == 'all':
+            pass
             
         if nearing_deadline and status_filter == 'pending':
             five_days_ago = now() - timedelta(days=5)
@@ -833,11 +989,12 @@ def get_filtered_registrations(request):
 
 
 @login_required
-def get_report_aggregates(request):
+def get_report_aggregates(request, base_queryset=None, default_report_type='status_summary'):
     """
     Helper to calculate the aggregation counts for the on-screen report cards.
     """
-    base_queryset = get_filtered_registrations(request)
+    if base_queryset is None:
+        base_queryset = get_filtered_registrations(request, default_report_type=default_report_type)
     
     reports = {
         'registrations_by_college': base_queryset.exclude(user__college__isnull=True).exclude(user__college='').values('user__college').annotate(count=Count('registration_number')).order_by('-count'),
@@ -854,14 +1011,22 @@ def admin_report(request):
     """
     Generates and displays various reports based on Registration data.
     """
-    reports = get_report_aggregates(request)
+    report_type = request.GET.get('report_type', 'status_summary')
+    registrations = get_filtered_registrations(request)
+    reports = get_report_aggregates(request, base_queryset=registrations, default_report_type=report_type)
+    headers, row_builder = get_report_table_definition(report_type)
+    table_rows = [row_builder(reg) for reg in registrations]
 
     context = {
-        'report_type': request.GET.get('report_type', 'status_summary'),
+        'report_type': report_type,
         'status_filter': request.GET.get('status', 'completed'),
         'nearing_deadline': request.GET.get('nearing_deadline') == 'true',
         'report_year': request.GET.get('year'),
         'report_semester': request.GET.get('semester'),
+        'report_table_headers': headers,
+        'report_table_rows': table_rows,
+        'report_results_count': len(table_rows),
+        'report_label': REPORT_TYPE_LABELS.get(report_type, 'Custom Report'),
 
         'registrations_by_college': reports['registrations_by_college'],
         'registrations_by_program': reports['registrations_by_program'],
@@ -900,104 +1065,15 @@ def download_reports_csv(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     writer = csv.writer(response)
-
-    # --- Define Report Structure based on report_type ---
-
-    # Helper for common fields (Used by Transaction & Default reports)
-    def get_common_trans_fields(reg):
-        return [
-            reg.registration_number,
-            reg.status.title(),
-            reg.date_of_filing.astimezone(pytz.timezone(settings.TIME_ZONE)).strftime("%Y-%m-%d %H:%M"),
-            f"{reg.user.firstname} {reg.user.lastname}",
-        ]
-
-    # --- Payment Reports (Concise Columns) ---
-    if report_type.startswith('payment_') and report_type != 'payment_deadline':
-        # Define base payment columns
-        header = ['Registration ID', 'Applicant Name', 'Date Filed', 'Status']
-        # Add the specific grouping column header based on report_type
-        if 'college' in report_type: header.append('College')
-        elif 'program' in report_type: header.append('Program')
-        elif 'department' in report_type: header.append('Department/Workplace')
-        elif 'personnel' in report_type or 'faculty' in report_type: header.append('Institutional Role')
-        elif 'role' in report_type: header.append('System Role')
-
-        # Define the data mapping function for payment reports
-        def payment_mapper(reg):
-            base_data = [
-                reg.registration_number,
-                f"{reg.user.firstname} {reg.user.lastname}",
-                reg.date_of_filing.astimezone(pytz.timezone(settings.TIME_ZONE)).strftime("%Y-%m-%d %H:%M"),
-                reg.status.title(),
-            ]
-            # Add the specific grouping data
-            if 'college' in report_type: base_data.append(reg.user.college or 'N/A')
-            elif 'program' in report_type: base_data.append(reg.user.program or 'N/A')
-            elif 'department' in report_type: base_data.append(reg.user.workplace or 'N/A')
-            elif 'personnel' in report_type or 'faculty' in report_type: base_data.append((reg.user.school_role or 'N/A').title())
-            elif 'role' in report_type: base_data.append(reg.user.role.title())
-            return base_data
-        data_mapper = payment_mapper
-
-    # --- Transaction Reports (Slightly more detail than Payment) ---
-    elif report_type.startswith('trans_'):
-        # Base transaction columns
-        header = ['Registration ID', 'Status', 'Date Filed', 'Applicant Name']
-        # Add grouping and vehicle columns
-        if 'college' in report_type: header.extend(['College', 'Program'])
-        elif 'program' in report_type: header.extend(['College', 'Program'])
-        elif 'department' in report_type: header.extend(['Department/Workplace', 'Institutional Role'])
-        elif 'personnel' in report_type or 'faculty' in report_type: header.extend(['Department/Workplace', 'Institutional Role'])
-        elif 'role' in report_type: header.extend(['System Role', 'Institutional Role'])
-        header.extend(['Vehicle Type', 'Plate Number']) # Common vehicle info for transactions
-
-        # Define the data mapping function for transaction reports
-        def transaction_mapper(reg):
-            base_data = get_common_trans_fields(reg)
-            # Add grouping data
-            if 'college' in report_type: base_data.extend([reg.user.college or 'N/A', reg.user.program or 'N/A'])
-            elif 'program' in report_type: base_data.extend([reg.user.college or 'N/A', reg.user.program or 'N/A'])
-            elif 'department' in report_type: base_data.extend([reg.user.workplace or 'N/A', (reg.user.school_role or 'N/A').title()])
-            elif 'personnel' in report_type or 'faculty' in report_type: base_data.extend([reg.user.workplace or 'N/A', (reg.user.school_role or 'N/A').title()])
-            elif 'role' in report_type: base_data.extend([reg.user.role.title(), (reg.user.school_role or 'N/A').title()])
-            # Add vehicle data
-            base_data.extend([reg.vehicle.type.title(), reg.vehicle.plate_number])
-            return base_data
-        data_mapper = transaction_mapper
-
-    # --- Default/Comprehensive (Status Summary, Annual, Semester, Deadline) ---
-    else:
-        header = [
-            'Registration ID', 'Status', 'Date Filed', 'Applicant Last Name', 'Applicant First Name',
-            'Applicant Email', 'Institutional Role', 'College/Workplace', 'Vehicle Type', 'Plate Number',
-            'Initial Approved By', 'Final Approved By', 'Remarks'
-        ]
-        data_mapper = lambda reg: [
-            reg.registration_number,
-            reg.status.title(),
-            reg.date_of_filing.astimezone(pytz.timezone(settings.TIME_ZONE)).strftime("%Y-%m-%d %H:%M"),
-            reg.user.lastname,
-            reg.user.firstname,
-            reg.user.corporate_email,
-            (reg.user.school_role or 'N/A').title(),
-            reg.user.college if reg.user.college else reg.user.workplace or 'N/A',
-            reg.vehicle.type.title(),
-            reg.vehicle.plate_number,
-            f"{reg.initial_approved_by.user.firstname} {reg.initial_approved_by.user.lastname}" if reg.initial_approved_by else '',
-            f"{reg.final_approved_by.user.firstname} {reg.final_approved_by.user.lastname}" if reg.final_approved_by else '', # Corrected access
-            reg.remarks if reg.remarks else ''
-        ]
-
-    # --- Write CSV ---
-    writer.writerow(header)
+    headers, row_builder = get_report_table_definition(report_type)
+    writer.writerow(headers)
 
     for reg in registrations:
         try:
-             writer.writerow(data_mapper(reg))
+            writer.writerow(row_builder(reg))
         except Exception as e:
-             print(f"Error writing row for registration {reg.registration_number}: {e}")
-             writer.writerow([reg.registration_number, "Error writing row", str(e)] + [''] * (len(header) - 3))
+            print(f"Error writing row for registration {reg.registration_number}: {e}")
+            writer.writerow([reg.registration_number, "Error writing row", str(e)] + [''] * (len(headers) - 3))
 
     return response
 
@@ -1246,14 +1322,22 @@ def security_report(request):
     """
     Generates and displays various reports based on Registration data for Security role.
     """
-    reports = get_report_aggregates(request)
+    report_type = request.GET.get('report_type') or 'payment_college'
+    registrations = get_filtered_registrations(request, default_report_type='payment_college')
+    reports = get_report_aggregates(request, base_queryset=registrations, default_report_type='payment_college')
+    headers, row_builder = get_report_table_definition(report_type)
+    table_rows = [row_builder(reg) for reg in registrations]
 
     context = {
-        'report_type': request.GET.get('report_type', 'status_summary'),
+        'report_type': report_type,
         'status_filter': request.GET.get('status', 'completed'),
         'nearing_deadline': request.GET.get('nearing_deadline') == 'true',
         'report_year': request.GET.get('year'),
         'report_semester': request.GET.get('semester'),
+        'report_table_headers': headers,
+        'report_table_rows': table_rows,
+        'report_results_count': len(table_rows),
+        'report_label': REPORT_TYPE_LABELS.get(report_type, 'Custom Report'),
         
         'registrations_by_college': reports['registrations_by_college'],
         'registrations_by_program': reports['registrations_by_program'],
